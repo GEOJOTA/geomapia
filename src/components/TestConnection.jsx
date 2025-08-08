@@ -8,7 +8,6 @@ const TestConnection = () => {
   const [error, setError] = useState(null);
   const [newPoint, setNewPoint] = useState({ name: '', description: '', lat: '', lng: '' });
 
-  // Verificar conexión y obtener datos
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -25,7 +24,6 @@ const TestConnection = () => {
     checkConnection();
   }, []);
 
-  // Manejar formulario para agregar un punto
   const handleAddPoint = async (e) => {
     e.preventDefault();
     try {
@@ -38,7 +36,6 @@ const TestConnection = () => {
     }
   };
 
-  // Eliminar un punto
   const handleDelete = async (id) => {
     try {
       await api.deletePoint(id);
