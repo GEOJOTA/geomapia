@@ -1,9 +1,6 @@
 services:
   - type: web
-    name: visor-osm
+    name: geomapia
     env: python
     buildCommand: "pip install -r requirements.txt"
-    startCommand: "python app.py"
-    envVars:
-      - key: FLASK_ENV
-        value: production
+    startCommand: "gunicorn app:app"
