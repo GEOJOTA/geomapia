@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e  # Salir si hay errores
+set -e
 
 echo "Usando Node.js preinstalado en Render..."
 node --version
