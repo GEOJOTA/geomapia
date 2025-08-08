@@ -10,3 +10,4 @@ geojson
 sqlalchemy
 flask-cors
 flask
+gunicorn==22.0.0
