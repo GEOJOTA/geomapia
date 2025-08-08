@@ -21,7 +21,7 @@ CORS(app)  # Permite conexión desde clientes externos como QGIS o navegador
 # Parámetros escalables — Puedes setearlos como variables de entorno en Render
 DB_CONFIG = {
     'DB_USER': os.environ.get('DB_USER', 'geojota'),
-    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'geojota_password'),
+    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'Lescano0806'),
     'DB_HOST': os.environ.get('DB_HOST', 'localhost'),  # Cambiar en Render
     'DB_PORT': os.environ.get('DB_PORT', '5432'),
     'DB_NAME': os.environ.get('DB_NAME', 'geomapia')
