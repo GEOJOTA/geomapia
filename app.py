@@ -1,113 +1,94 @@
-# ===============================================================
-# 📦 DEPENDENCIAS REQUERIDAS
-# Asegúrate de tener instaladas: flask, flask-cors, psycopg2, sqlalchemy
-# ===============================================================
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from sqlalchemy import create_engine, text
 import os
+import json
 
-# ===============================================================
-# ⚙️ CONFIGURACIÓN DE LA APLICACIÓN FLASK
-# Puedes cambiar estos valores para escalar o portar
-# ===============================================================
 app = Flask(__name__)
-CORS(app)  # Permite conexión desde clientes externos como QGIS o navegador
+CORS(app)
 
-# ===============================================================
-# 🔐 CONFIGURACIÓN DE CONEXIÓN A LA BASE DE DATOS POSTGIS
-# 📌 MODIFICABLE PARA USUARIOS, CONTRASEÑAS Y HOST DIFERENTES
-# ===============================================================
-# Parámetros escalables — Puedes setearlos como variables de entorno en Render
 DB_CONFIG = {
     'DB_USER': os.environ.get('DB_USER', 'geojota'),
     'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'Lescano0806'),
-    'DB_HOST': os.environ.get('DB_HOST', 'localhost'),  # Cambiar en Render
+    'DB_HOST': os.environ.get('DB_HOST', 'localhost'),
     'DB_PORT': os.environ.get('DB_PORT', '5432'),
     'DB_NAME': os.environ.get('DB_NAME', 'geomapia')
 }
 
-# 🔌 Construcción dinámica del string de conexión
 DATABASE_URL = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@" \
                f"{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
 
-# 🌐 Motor SQLAlchemy
 engine = create_engine(DATABASE_URL)
 
-
-# ===============================================================
-# 🛰️ RUTA DE PRUEBA DE CONEXIÓN
-# Útil para saber si la base está operativa
-# ===============================================================
 @app.route('/')
 def index():
     return jsonify({"status": "ok", "message": "GeoMapia backend running!"})
 
+@app.route('/api/health')
+def health():
+    return jsonify({"status": "healthy"})
 
-# ===============================================================
-# 🌍 API: OBTENER TODAS LAS GEOMETRÍAS DE UNA TABLA
-# Parámetros:
-#   - tabla (str): nombre de la tabla a consultar (debe tener columna geom)
-#   - srid (opcional): sistema de referencia (default: 4326)
-# ===============================================================
-@app.route('/api/geometries/<tabla>')
-def get_geometries(tabla):
+# Solo operamos con tabla fija points para evitar SQL Injection
+TABLE_NAME = "points"
+
+@app.route('/api/geodata', methods=['GET'])
+def get_geodata():
     srid = request.args.get("srid", default="4326")
     try:
         query = text(f"""
-            SELECT 
-                id, 
-                ST_AsGeoJSON(ST_Transform(geom, :srid)) AS geometry 
-            FROM {tabla}
+            SELECT id, name, description, ST_AsGeoJSON(ST_Transform(geom, :srid)) AS geometry
+            FROM {TABLE_NAME}
         """)
         with engine.connect() as conn:
             result = conn.execute(query, {"srid": int(srid)})
             features = []
             for row in result:
+                geometry = json.loads(row['geometry'])  # seguro vs eval
                 features.append({
-                    "type": "Feature",
-                    "geometry": eval(row['geometry']),
-                    "properties": {"id": row['id']}
+                    "id": row['id'],
+                    "name": row['name'],
+                    "description": row['description'],
+                    "geometry": geometry
                 })
-        return jsonify({"type": "FeatureCollection", "features": features})
+        return jsonify(features)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-# ===============================================================
-# 🗺️ API: INSERTAR NUEVA GEOMETRÍA
-# Cuerpo JSON:
-#   {
-#     "geometry": {GeoJSON},
-#     "tabla": "nombre_tabla"
-#   }
-# ===============================================================
-@app.route('/api/geometries', methods=['POST'])
-def insert_geometry():
+@app.route('/api/geodata', methods=['POST'])
+def create_point():
     data = request.get_json()
+    name = data.get("name")
+    description = data.get("description")
     geometry = data.get("geometry")
-    tabla = data.get("tabla")
-    
-    if not geometry or not tabla:
-        return jsonify({"error": "Missing geometry or table"}), 400
+
+    if not geometry or not name:
+        return jsonify({"error": "Missing geometry or name"}), 400
 
     try:
         query = text(f"""
-            INSERT INTO {tabla} (geom)
-            VALUES (ST_SetSRID(ST_GeomFromGeoJSON(:geom), 4326))
+            INSERT INTO {TABLE_NAME} (name, description, geom)
+            VALUES (:name, :description, ST_SetSRID(ST_GeomFromGeoJSON(:geom), 4326))
         """)
         with engine.connect() as conn:
-            conn.execute(query, {"geom": str(geometry)})
+            conn.execute(query, {"name": name, "description": description, "geom": json.dumps(geometry)})
             conn.commit()
         return jsonify({"status": "success"}), 201
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/api/geodata/<int:id>', methods=['DELETE'])
+def delete_point(id):
+    try:
+        query = text(f"DELETE FROM {TABLE_NAME} WHERE id = :id")
+        with engine.connect() as conn:
+            result = conn.execute(query, {"id": id})
+            conn.commit()
+        if result.rowcount == 0:
+            return jsonify({"error": "ID not found"}), 404
+        return jsonify({"status": "deleted"})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-# ===============================================================
-# 🔧 PUNTO DE ENTRADA PRINCIPAL
-# Render configura esto automáticamente, pero útil localmente
-# ===============================================================
+
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
