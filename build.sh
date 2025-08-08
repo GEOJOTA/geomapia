@@ -14,3 +14,4 @@ npm run build
 echo "Instalando dependencias de Python..."
 pip install --upgrade pip
 pip install -r requirements.txt
+
