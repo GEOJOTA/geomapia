@@ -1,11 +1,10 @@
-// API Service para conectar con el backend
-const API_URL = process.env.REACT_APP_API_URL || process.env.VITE_API_URL || 'https://geomapia-backend.vercel.app';
+const API_URL = process.env.VITE_API_URL || 'https://geomapia-backend.vercel.app';
 
 export const api = {
-  // Verificar estado del backend
   async healthCheck() {
     try {
       const response = await fetch(`${API_URL}/api/health`);
+      if (!response.ok) throw new Error('Health check failed');
       return await response.json();
     } catch (error) {
       console.error('Backend no disponible:', error);
@@ -13,7 +12,6 @@ export const api = {
     }
   },
 
-  // Obtener todos los datos geoespaciales
   async getGeoData() {
     try {
       const response = await fetch(`${API_URL}/api/geodata`);
@@ -25,7 +23,6 @@ export const api = {
     }
   },
 
-  // Crear nuevo punto
   async createPoint(name, description, lat, lng) {
     try {
       const response = await fetch(`${API_URL}/api/geodata`, {
@@ -38,11 +35,10 @@ export const api = {
           description,
           geometry: {
             type: 'Point',
-            coordinates: [lng, lat] // Lon, Lat en GeoJSON
+            coordinates: [parseFloat(lng), parseFloat(lat)]
           }
         })
       });
-      
       if (!response.ok) throw new Error('Error creando punto');
       return await response.json();
     } catch (error) {
@@ -51,13 +47,11 @@ export const api = {
     }
   },
 
-  // Eliminar punto
   async deletePoint(id) {
     try {
       const response = await fetch(`${API_URL}/api/geodata/${id}`, {
         method: 'DELETE',
       });
-      
       if (!response.ok) throw new Error('Error eliminando punto');
       return await response.json();
     } catch (error) {
