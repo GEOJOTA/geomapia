@@ -54,24 +54,24 @@ function App() {
       const bounds = turf.bbox(geoJSON);
       
       // Llamar a la API de GeoMapia
-      const response = await axios.post('https://geomapia.onrender.com/api/query', {
-        bbox: bounds,
-        filters: {
-          // Aquí puedes agregar filtros específicos
-          amenity: ['school', 'hospital', 'park']
-        }
+      const response = await axios.post('https://geomapia.onrender.com/api/geodata', {
+        name: 'Área de búsqueda',
+        description: 'Polígono dibujado por el usuario',
+        geometry: geoJSON.geometry
       });
 
-      setOsmData(response.data);
+      // Después de guardar el área, obtener todos los puntos
+      const getResponse = await axios.get('https://geomapia.onrender.com/api/geodata');
+      setOsmData(getResponse.data);
       
       // Agregar marcadores basados en la respuesta
-      const newMarkers = response.data.features.map(feature => ({
+      const newMarkers = getResponse.data.map(feature => ({
         position: [
           feature.geometry.coordinates[1],
           feature.geometry.coordinates[0]
         ],
-        title: feature.properties.name || 'Sin nombre',
-        description: `Tipo: ${feature.properties.amenity || 'No especificado'}`
+        title: feature.name || 'Sin nombre',
+        description: feature.description || 'No especificado'
       }));
       
       setMarkers(newMarkers);
