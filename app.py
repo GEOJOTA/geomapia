@@ -26,7 +26,7 @@ def index():
         bbox = box(west, south, east, north)
 
         # Descargar datos con OSMnx
-        gdf = ox.geometries_from_bbox(north, south, east, west, tags={feature: True})
+        gdf = ox.features_from_bbox(north, south, east, west, tags={feature: True})
 
         if gdf.empty:
             return render_template("index.html", message="No se encontraron datos.")
@@ -54,3 +54,5 @@ def index():
 
     return render_template("index.html")
 
+if __name__ == "__main__":
+    app.run(debug=True)
