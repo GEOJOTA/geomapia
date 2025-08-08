@@ -1,10 +1,11 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import create_engine, text
 import os
 import json
 
-app = Flask(__name__)
+# Flask setup con carpeta estática en dist (build React)
+app = Flask(__name__, static_folder='dist')
 CORS(app)
 
 DB_CONFIG = {
@@ -20,7 +21,24 @@ DATABASE_URL = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@
 
 engine = create_engine(DATABASE_URL)
 
+# --- API Routes ---
+
 @app.route('/')
+def serve_frontend():
+    # Servir index.html del build React
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    # Servir archivos estáticos si existen
+    full_path = os.path.join(app.static_folder, path)
+    if path != "" and os.path.exists(full_path):
+        return send_from_directory(app.static_folder, path)
+    else:
+        # En caso contrario, devolver index.html para rutas SPA
+        return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/api')
 def index():
     return jsonify({"status": "ok", "message": "GeoMapia backend running!"})
 
@@ -28,7 +46,6 @@ def index():
 def health():
     return jsonify({"status": "healthy"})
 
-# Solo operamos con tabla fija points para evitar SQL Injection
 TABLE_NAME = "points"
 
 @app.route('/api/geodata', methods=['GET'])
@@ -43,7 +60,7 @@ def get_geodata():
             result = conn.execute(query, {"srid": int(srid)})
             features = []
             for row in result:
-                geometry = json.loads(row['geometry'])  # seguro vs eval
+                geometry = json.loads(row['geometry'])
                 features.append({
                     "id": row['id'],
                     "name": row['name'],
@@ -89,6 +106,6 @@ def delete_point(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # Puerto 5000 por defecto, escucha todas las interfaces
+    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
