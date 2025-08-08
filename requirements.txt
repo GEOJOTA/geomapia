@@ -7,3 +7,6 @@ pyproj
 gunicorn
 psycopg2-binary
 geojson
+sqlalchemy
+flask-cors
+flask
