@@ -1,0 +1,13 @@
+Flask
+geopandas
+osmnx
+shapely
+fiona
+pyproj
+gunicorn
+psycopg2-binary
+geojson
+sqlalchemy
+flask-cors
+flask
+gunicorn==22.0.0
