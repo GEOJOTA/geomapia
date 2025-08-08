@@ -11,3 +11,9 @@ sqlalchemy
 flask-cors
 flask
 gunicorn==22.0.0
+flask
+flask-cors
+requests
+geopandas
+osmnx
+
