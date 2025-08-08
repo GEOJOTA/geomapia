@@ -1,11 +1,30 @@
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
 
 export default defineConfig({
   plugins: [react()],
-  root: '.', // raíz en carpeta actual (opcional, por defecto así)
-  base: './', // base para build (útil si vas a servir estáticos desde subcarpeta)
-  server: {
-    port: 5173,
+  optimizeDeps: {
+    include: [
+      'react-leaflet',
+      'leaflet',
+      'leaflet-draw',
+      'react-leaflet-draw',
+      '@turf/turf'
+    ]
   },
-})
+  build: {
+    rollupOptions: {
+      external: [
+        'react-leaflet',
+        'leaflet',
+        'leaflet-draw',
+        'react-leaflet-draw',
+        '@turf/turf'
+      ]
+    }
+  },
+  server: {
+    host: '0.0.0.0',
+    port: process.env.PORT || 5173
+  }
+});
