@@ -1,66 +1,60 @@
 import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import TestConnection from './components/TestConnection';
-import './index.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-function LocationMarker({ onAddPoint }) {
-  const [position, setPosition] = useState(null);
-
-  useMapEvents({
-    click(e) {
-      setPosition(e.latlng);
-      onAddPoint(e.latlng);
-    },
-  });
-
-  return position === null ? null : (
-    <Marker position={position}>
-      <Popup>Nuevo punto seleccionado</Popup>
-    </Marker>
-  );
-}
+// Fix for default marker icon
+const DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 function App() {
-  const [points, setPoints] = useState([]);
-
-  // Puedes llamar a la API aquí o pasar los puntos desde TestConnection
-
-  // Función para agregar punto temporal (solo UI)
-  const handleAddPoint = (latlng) => {
-    alert(`Punto nuevo en: ${latlng.lat.toFixed(5)}, ${latlng.lng.toFixed(5)}`);
-    // Aquí podrías abrir formulario para guardar punto real
-  };
+  const [markers] = useState([
+    {
+      position: [-33.45, -70.6667],
+      title: 'Santiago Centro',
+      description: 'Capital de Chile'
+    },
+    {
+      position: [-33.4205, -70.5825],
+      title: 'Providencia',
+      description: 'Comuna de Santiago'
+    }
+  ]);
 
   return (
-    <div className="App" style={{ fontFamily: 'Arial, sans-serif' }}>
-      <header
-        style={{
-          backgroundColor: '#2c3e50',
-          color: 'white',
-          padding: '1rem',
-          textAlign: 'center',
-        }}
+    <div style={{ height: '100vh', width: '100%' }}>
+      <MapContainer 
+        center={[-33.45, -70.6667]} 
+        zoom={13} 
+        style={{ height: '100%', width: '100%' }}
+        zoomControl={false}  // We'll add it in a different position
       >
-        <h1>🗺️ GeoMapia</h1>
-        <p>Plataforma de datos geoespaciales</p>
-      </header>
-      <main>
-        <MapContainer center={[-33.45, -70.6667]} zoom={12} style={{ height: '400px', width: '100%' }}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <LocationMarker onAddPoint={handleAddPoint} />
-          {points.map((p) => (
-            <Marker key={p.id} position={[p.geometry.coordinates[1], p.geometry.coordinates[0]]}>
-              <Popup>
-                <b>{p.name}</b>
-                <br />
-                {p.description}
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-        <TestConnection />
-      </main>
+        <TileLayer
+          attribution='&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+        {markers.map((marker, index) => (
+          <Marker key={index} position={marker.position}>
+            <Popup>
+              <div>
+                <h3>{marker.title}</h3>
+                <p>{marker.description}</p>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+        <ZoomControl position="topright" />
+        <ScaleControl position="bottomright" />
+      </MapContainer>
     </div>
   );
 }
