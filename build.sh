@@ -1,10 +1,15 @@
 #!/bin/bash
-# Instalar Node.js y npm
+set -e  # Salir si hay errores
+echo "Instalando Node.js..."
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
 apt-get install -y nodejs
-# Instalar dependencias de Node.js
+echo "Node.js version:"
+node --version
+echo "npm version:"
+npm --version
+echo "Instalando dependencias de Node.js..."
 npm install
-# Construir el frontend
+echo "Construyendo frontend con Vite..."
 npm run build
-# Instalar dependencias de Python
+echo "Instalando dependencias de Python..."
 pip install -r requirements.txt
