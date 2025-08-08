@@ -1,48 +1,31 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <title>Visor OSM Flask</title>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <style>
-        #map { height: 400px; width: 100%; margin-bottom: 10px; }
-    </style>
+  <meta charset="UTF-8" />
+  <title>Geomapia Frontend</title>
 </head>
 <body>
-    <h2>Descargar entidades de OpenStreetMap</h2>
-    <div id="map"></div>
-    <form method="POST">
-        <label>Norte: <input type="text" name="north" id="north" required></label><br>
-        <label>Sur: <input type="text" name="south" id="south" required></label><br>
-        <label>Este: <input type="text" name="east" id="east" required></label><br>
-        <label>Oeste: <input type="text" name="west" id="west" required></label><br>
-        <label>Tipo de entidad (ej: highway, building): <input type="text" name="feature" required></label><br>
-        <label>Formato:
-            <select name="format" required>
-                <option value="shp">Shapefile</option>
-                <option value="geojson">GeoJSON</option>
-                <option value="kml">KML</option>
-            </select>
-        </label><br><br>
-        <button type="submit">Descargar</button>
-    </form>
+  <h1>Datos Geomapia</h1>
+  <ul id="data-list"></ul>
 
-    {% if message %}
-        <p style="color:red;">{{ message }}</p>
-    {% endif %}
-
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script>
-        var map = L.map('map').setView([-33.45, -70.66], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-        map.on('moveend', function () {
-            var bounds = map.getBounds();
-            document.getElementById('north').value = bounds.getNorth();
-            document.getElementById('south').value = bounds.getSouth();
-            document.getElementById('east').value = bounds.getEast();
-            document.getElementById('west').value = bounds.getWest();
+  <script>
+    async function fetchData() {
+      try {
+        const response = await fetch('https://geomapia.onrender.com/api/data');
+        if (!response.ok) throw new Error('Error en la respuesta');
+        const data = await response.json();
+        const ul = document.getElementById('data-list');
+        data.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = `${item.id}: ${item.name}`;
+          ul.appendChild(li);
         });
-    </script>
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    fetchData();
+  </script>
 </body>
 </html>
-
