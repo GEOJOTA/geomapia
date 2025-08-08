@@ -1,58 +1,113 @@
-from flask import Flask, render_template, request, send_file
-import osmnx as ox
-import geopandas as gpd
+# ===============================================================
+# 📦 DEPENDENCIAS REQUERIDAS
+# Asegúrate de tener instaladas: flask, flask-cors, psycopg2, sqlalchemy
+# ===============================================================
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+from sqlalchemy import create_engine, text
 import os
-from shapely.geometry import box
-from datetime import datetime
 
+# ===============================================================
+# ⚙️ CONFIGURACIÓN DE LA APLICACIÓN FLASK
+# Puedes cambiar estos valores para escalar o portar
+# ===============================================================
 app = Flask(__name__)
-DOWNLOAD_DIR = "downloads"
+CORS(app)  # Permite conexión desde clientes externos como QGIS o navegador
 
-if not os.path.exists(DOWNLOAD_DIR):
-    os.makedirs(DOWNLOAD_DIR)
+# ===============================================================
+# 🔐 CONFIGURACIÓN DE CONEXIÓN A LA BASE DE DATOS POSTGIS
+# 📌 MODIFICABLE PARA USUARIOS, CONTRASEÑAS Y HOST DIFERENTES
+# ===============================================================
+# Parámetros escalables — Puedes setearlos como variables de entorno en Render
+DB_CONFIG = {
+    'DB_USER': os.environ.get('DB_USER', 'geojota'),
+    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'geojota_password'),
+    'DB_HOST': os.environ.get('DB_HOST', 'localhost'),  # Cambiar en Render
+    'DB_PORT': os.environ.get('DB_PORT', '5432'),
+    'DB_NAME': os.environ.get('DB_NAME', 'geomapia')
+}
 
-@app.route('/', methods=["GET", "POST"])
+# 🔌 Construcción dinámica del string de conexión
+DATABASE_URL = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@" \
+               f"{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
+
+# 🌐 Motor SQLAlchemy
+engine = create_engine(DATABASE_URL)
+
+
+# ===============================================================
+# 🛰️ RUTA DE PRUEBA DE CONEXIÓN
+# Útil para saber si la base está operativa
+# ===============================================================
+@app.route('/')
 def index():
-    if request.method == "POST":
-        # Obtener parámetros del formulario
-        north = float(request.form["north"])
-        south = float(request.form["south"])
-        east = float(request.form["east"])
-        west = float(request.form["west"])
-        feature = request.form["feature"]
-        file_format = request.form["format"]
+    return jsonify({"status": "ok", "message": "GeoMapia backend running!"})
 
-        # Crear bbox
-        bbox = box(west, south, east, north)
 
-        # Descargar datos con OSMnx
-        gdf = ox.features_from_bbox(north, south, east, west, tags={feature: True})
+# ===============================================================
+# 🌍 API: OBTENER TODAS LAS GEOMETRÍAS DE UNA TABLA
+# Parámetros:
+#   - tabla (str): nombre de la tabla a consultar (debe tener columna geom)
+#   - srid (opcional): sistema de referencia (default: 4326)
+# ===============================================================
+@app.route('/api/geometries/<tabla>')
+def get_geometries(tabla):
+    srid = request.args.get("srid", default="4326")
+    try:
+        query = text(f"""
+            SELECT 
+                id, 
+                ST_AsGeoJSON(ST_Transform(geom, :srid)) AS geometry 
+            FROM {tabla}
+        """)
+        with engine.connect() as conn:
+            result = conn.execute(query, {"srid": int(srid)})
+            features = []
+            for row in result:
+                features.append({
+                    "type": "Feature",
+                    "geometry": eval(row['geometry']),
+                    "properties": {"id": row['id']}
+                })
+        return jsonify({"type": "FeatureCollection", "features": features})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        if gdf.empty:
-            return render_template("index.html", message="No se encontraron datos.")
 
-        # Filtrar solo geometría principal
-        gdf = gdf[gdf.geometry.notnull()]
-        gdf = gdf.set_geometry("geometry")
+# ===============================================================
+# 🗺️ API: INSERTAR NUEVA GEOMETRÍA
+# Cuerpo JSON:
+#   {
+#     "geometry": {GeoJSON},
+#     "tabla": "nombre_tabla"
+#   }
+# ===============================================================
+@app.route('/api/geometries', methods=['POST'])
+def insert_geometry():
+    data = request.get_json()
+    geometry = data.get("geometry")
+    tabla = data.get("tabla")
+    
+    if not geometry or not tabla:
+        return jsonify({"error": "Missing geometry or table"}), 400
 
-        # Generar nombre de archivo
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"{feature}_{timestamp}.{file_format}"
-        filepath = os.path.join(DOWNLOAD_DIR, filename)
+    try:
+        query = text(f"""
+            INSERT INTO {tabla} (geom)
+            VALUES (ST_SetSRID(ST_GeomFromGeoJSON(:geom), 4326))
+        """)
+        with engine.connect() as conn:
+            conn.execute(query, {"geom": str(geometry)})
+            conn.commit()
+        return jsonify({"status": "success"}), 201
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
-        # Guardar archivo
-        if file_format == "geojson":
-            gdf.to_file(filepath, driver="GeoJSON")
-        elif file_format == "shp":
-            gdf.to_file(filepath, driver="ESRI Shapefile")
-        elif file_format == "kml":
-            gdf.to_file(filepath, driver="KML")
-        else:
-            return render_template("index.html", message="Formato no compatible.")
 
-        return send_file(filepath, as_attachment=True)
+# ===============================================================
+# 🔧 PUNTO DE ENTRADA PRINCIPAL
+# Render configura esto automáticamente, pero útil localmente
+# ===============================================================
+if __name__ == '__main__':
+    app.run(debug=True, port=5000)
 
-    return render_template("index.html")
-
-if __name__ == "__main__":
-    app.run(debug=True)
