@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Visor OSM Flask</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 400px; width: 100%; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h2>Descargar entidades de OpenStreetMap</h2>
+    <div id="map"></div>
+    <form method="POST">
+        <label>Norte: <input type="text" name="north" id="north" required></label><br>
+        <label>Sur: <input type="text" name="south" id="south" required></label><br>
+        <label>Este: <input type="text" name="east" id="east" required></label><br>
+        <label>Oeste: <input type="text" name="west" id="west" required></label><br>
+        <label>Tipo de entidad (ej: highway, building): <input type="text" name="feature" required></label><br>
+        <label>Formato:
+            <select name="format" required>
+                <option value="shp">Shapefile</option>
+                <option value="geojson">GeoJSON</option>
+                <option value="kml">KML</option>
+            </select>
+        </label><br><br>
+        <button type="submit">Descargar</button>
+    </form>
+
+    {% if message %}
+        <p style="color:red;">{{ message }}</p>
+    {% endif %}
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        var map = L.map('map').setView([-33.45, -70.66], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
+        map.on('moveend', function () {
+            var bounds = map.getBounds();
+            document.getElementById('north').value = bounds.getNorth();
+            document.getElementById('south').value = bounds.getSouth();
+            document.getElementById('east').value = bounds.getEast();
+            document.getElementById('west').value = bounds.getWest();
+        });
+    </script>
+</body>
+</html>
+
