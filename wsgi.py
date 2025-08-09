@@ -1,4 +1,4 @@
-from app import app
+from app import app  # importa tu app Flask
 
 if __name__ == "__main__":
-    app.run()
+    app.run(host="0.0.0.0", port=5000, debug=True)  # solo para desarrollo en Windows
