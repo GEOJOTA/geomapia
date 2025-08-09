@@ -4,48 +4,41 @@ from sqlalchemy import create_engine, text
 import os
 import json
 
-# Flask setup con carpeta estática en dist (build React)
 app = Flask(__name__, static_folder='dist')
 CORS(app)
 
-DB_CONFIG = {
-    'DB_USER': os.environ.get('DB_USER', 'geojota'),
-    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'Lescano0806'),
-    'DB_HOST': os.environ.get('DB_HOST', 'localhost'),
-    'DB_PORT': os.environ.get('DB_PORT', '5432'),
-    'DB_NAME': os.environ.get('DB_NAME', 'geomapia')
-}
+# Configuración conexión DB (usa variables de entorno para seguridad)
+DB_USER = os.environ.get('DB_USER', 'postgres')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'Lescano0806.')
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_PORT = os.environ.get('DB_PORT', '5432')
+DB_NAME = os.environ.get('DB_NAME', 'geomapia')
 
-DATABASE_URL = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@" \
-               f"{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
-
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 engine = create_engine(DATABASE_URL)
 
-# --- API Routes ---
-
+# Ruta para servir el frontend
 @app.route('/')
 def serve_frontend():
-    # Servir index.html del build React
     return send_from_directory(app.static_folder, 'index.html')
 
+# Ruta para servir archivos estáticos
 @app.route('/<path:path>')
 def serve_static(path):
-    # Servir archivos estáticos si existen
-    full_path = os.path.join(app.static_folder, path)
-    if path != "" and os.path.exists(full_path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
         return send_from_directory(app.static_folder, path)
-    else:
-        # En caso contrario, devolver index.html para rutas SPA
-        return send_from_directory(app.static_folder, 'index.html')
+    return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/api')
-def index():
+# Ruta de estado de la API
+@app.route('/api/status')
+def api_status():
     return jsonify({"status": "ok", "message": "GeoMapia backend running!"})
 
 @app.route('/api/health')
 def health():
     return jsonify({"status": "healthy"})
 
+# Solo operamos con tabla fija points para evitar SQL Injection
 TABLE_NAME = "points"
 
 @app.route('/api/geodata', methods=['GET'])
@@ -60,7 +53,7 @@ def get_geodata():
             result = conn.execute(query, {"srid": int(srid)})
             features = []
             for row in result:
-                geometry = json.loads(row['geometry'])
+                geometry = json.loads(row['geometry'])  # seguro vs eval
                 features.append({
                     "id": row['id'],
                     "name": row['name'],
@@ -106,6 +99,7 @@ def delete_point(id):
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
 if __name__ == '__main__':
-    # Puerto 5000 por defecto, escucha todas las interfaces
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=True)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
