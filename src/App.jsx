@@ -28,6 +28,44 @@ function App() {
   const featureGroupRef = useRef(null);
   const [handleDrawCreated, setHandleDrawCreated] = useState(null);
 
+  // Cargar puntos existentes al iniciar
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get('/api/geodata');
+        setOsmData(response.data);
+        const loadedMarkers = response.data.map(feature => ({
+          id: feature.id,
+          position: [
+            feature.geometry.coordinates[1],
+            feature.geometry.coordinates[0]
+          ],
+          title: feature.name || 'Sin nombre',
+          description: feature.description || 'No especificado'
+        }));
+        setMarkers(loadedMarkers);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error al cargar puntos:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPoints();
+  }, []);
+
+  // Función para eliminar un punto
+  const handleDeletePoint = async (id) => {
+    try {
+      await axios.delete(`/api/geodata/${id}`);
+      setMarkers(markers.filter(marker => marker.id !== id));
+    } catch (err) {
+      setError(err.message);
+      console.error('Error al eliminar punto:', err);
+    }
+  };
+
   function MapEvents() {
     const map = useMap();
     useEffect(() => {
@@ -51,27 +89,31 @@ function App() {
       setError(null);
       
       // Convertir el polígono a formato compatible con la API
-      const bounds = turf.bbox(geoJSON);
+      const center = turf.center(geoJSON);
       
-      // Llamar a la API de GeoMapia
-      const response = await axios.post('https://geomapia.onrender.com/api/query', {
-        bbox: bounds,
-        filters: {
-          // Aquí puedes agregar filtros específicos
-          amenity: ['school', 'hospital', 'park']
+      // Guardar el punto central del área dibujada
+      const response = await axios.post('/api/geodata', {
+        name: 'Punto de interés',
+        description: 'Ubicación marcada por el usuario',
+        geometry: {
+          type: 'Point',
+          coordinates: center.geometry.coordinates
         }
       });
 
-      setOsmData(response.data);
+      // Si se guardó exitosamente, obtener todos los puntos
+      const getResponse = await axios.get('/api/geodata');
+      setOsmData(getResponse.data);
       
       // Agregar marcadores basados en la respuesta
-      const newMarkers = response.data.features.map(feature => ({
+      const newMarkers = getResponse.data.map(feature => ({
+        id: feature.id,
         position: [
           feature.geometry.coordinates[1],
           feature.geometry.coordinates[0]
         ],
-        title: feature.properties.name || 'Sin nombre',
-        description: `Tipo: ${feature.properties.amenity || 'No especificado'}`
+        title: feature.name || 'Sin nombre',
+        description: feature.description || 'No especificado'
       }));
       
       setMarkers(newMarkers);
@@ -140,11 +182,25 @@ function App() {
           </FeatureGroup>
           
           {markers.map((marker, index) => (
-            <Marker key={index} position={marker.position}>
+            <Marker key={marker.id} position={marker.position}>
               <Popup>
                 <div>
                   <h3>{marker.title}</h3>
                   <p>{marker.description}</p>
+                  <button 
+                    onClick={() => handleDeletePoint(marker.id)}
+                    style={{
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '5px 10px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginTop: '10px'
+                    }}
+                  >
+                    Eliminar punto
+                  </button>
                 </div>
               </Popup>
             </Marker>
@@ -160,4 +216,3 @@ function App() {
 }
 
 export default App;
-
