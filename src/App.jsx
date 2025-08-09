@@ -3,6 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, Feat
 import { EditControl } from 'react-leaflet-draw';
 import * as turf from '@turf/turf';
 import axios from 'axios';
+
+// Configura la URL base según el entorno
+const API_BASE_URL = import.meta.env.PROD ? 'https://geomapia.onrender.com' : '';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from 'leaflet';
@@ -33,7 +36,7 @@ function App() {
     const loadPoints = async () => {
       try {
         setLoading(true);
-        const response = await axios.get('/api/geodata');
+        const response = await axios.get(`${API_BASE_URL}/api/geodata`);
         setOsmData(response.data);
         const loadedMarkers = response.data.map(feature => ({
           id: feature.id,
@@ -58,7 +61,7 @@ function App() {
   // Función para eliminar un punto
   const handleDeletePoint = async (id) => {
     try {
-      await axios.delete(`/api/geodata/${id}`);
+      await axios.delete(`${API_BASE_URL}/api/geodata/${id}`);
       setMarkers(markers.filter(marker => marker.id !== id));
     } catch (err) {
       setError(err.message);
@@ -92,7 +95,7 @@ function App() {
       const center = turf.center(geoJSON);
       
       // Guardar el punto central del área dibujada
-      const response = await axios.post('/api/geodata', {
+      const response = await axios.post(`${API_BASE_URL}/api/geodata`, {
         name: 'Punto de interés',
         description: 'Ubicación marcada por el usuario',
         geometry: {
@@ -102,7 +105,7 @@ function App() {
       });
 
       // Si se guardó exitosamente, obtener todos los puntos
-      const getResponse = await axios.get('/api/geodata');
+      const getResponse = await axios.get(`${API_BASE_URL}/api/geodata`);
       setOsmData(getResponse.data);
       
       // Agregar marcadores basados en la respuesta
