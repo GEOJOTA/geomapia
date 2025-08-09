@@ -1,27 +1,37 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from sqlalchemy import create_engine, text
 import os
 import json
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='dist')
 CORS(app)
 
-DB_CONFIG = {
-    'DB_USER': os.environ.get('DB_USER', 'geojota'),
-    'DB_PASSWORD': os.environ.get('DB_PASSWORD', 'Lescano0806'),
-    'DB_HOST': os.environ.get('DB_HOST', 'localhost'),
-    'DB_PORT': os.environ.get('DB_PORT', '5432'),
-    'DB_NAME': os.environ.get('DB_NAME', 'geomapia')
-}
+# Configuración conexión DB (usa variables de entorno para seguridad)
+DB_USER = os.environ.get('DB_USER', 'postgres')
+DB_PASSWORD = os.environ.get('DB_PASSWORD', 'Lescano0806.')
+DB_HOST = os.environ.get('DB_HOST', 'localhost')
+DB_PORT = os.environ.get('DB_PORT', '5432')
+DB_NAME = os.environ.get('DB_NAME', 'geomapia')
 
-DATABASE_URL = f"postgresql://{DB_CONFIG['DB_USER']}:{DB_CONFIG['DB_PASSWORD']}@" \
-               f"{DB_CONFIG['DB_HOST']}:{DB_CONFIG['DB_PORT']}/{DB_CONFIG['DB_NAME']}"
-
+DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 engine = create_engine(DATABASE_URL)
 
+# Ruta para servir el frontend
 @app.route('/')
-def index():
+def serve_frontend():
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Ruta para servir archivos estáticos
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
+
+# Ruta de estado de la API
+@app.route('/api/status')
+def api_status():
     return jsonify({"status": "ok", "message": "GeoMapia backend running!"})
 
 @app.route('/api/health')
@@ -91,4 +101,5 @@ def delete_point(id):
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)

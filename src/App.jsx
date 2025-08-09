@@ -3,6 +3,9 @@ import { MapContainer, TileLayer, Marker, Popup, ZoomControl, ScaleControl, Feat
 import { EditControl } from 'react-leaflet-draw';
 import * as turf from '@turf/turf';
 import axios from 'axios';
+
+// Configura la URL base según el entorno
+const API_BASE_URL = import.meta.env.PROD ? 'https://geomapia.onrender.com' : '';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 import L from 'leaflet';
@@ -28,6 +31,44 @@ function App() {
   const featureGroupRef = useRef(null);
   const [handleDrawCreated, setHandleDrawCreated] = useState(null);
 
+  // Cargar puntos existentes al iniciar
+  useEffect(() => {
+    const loadPoints = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${API_BASE_URL}/api/geodata`);
+        setOsmData(response.data);
+        const loadedMarkers = response.data.map(feature => ({
+          id: feature.id,
+          position: [
+            feature.geometry.coordinates[1],
+            feature.geometry.coordinates[0]
+          ],
+          title: feature.name || 'Sin nombre',
+          description: feature.description || 'No especificado'
+        }));
+        setMarkers(loadedMarkers);
+      } catch (err) {
+        setError(err.message);
+        console.error('Error al cargar puntos:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadPoints();
+  }, []);
+
+  // Función para eliminar un punto
+  const handleDeletePoint = async (id) => {
+    try {
+      await axios.delete(`${API_BASE_URL}/api/geodata/${id}`);
+      setMarkers(markers.filter(marker => marker.id !== id));
+    } catch (err) {
+      setError(err.message);
+      console.error('Error al eliminar punto:', err);
+    }
+  };
+
   function MapEvents() {
     const map = useMap();
     useEffect(() => {
@@ -51,21 +92,25 @@ function App() {
       setError(null);
       
       // Convertir el polígono a formato compatible con la API
-      const bounds = turf.bbox(geoJSON);
+      const center = turf.center(geoJSON);
       
-      // Llamar a la API de GeoMapia
-      const response = await axios.post('https://geomapia.onrender.com/api/geodata', {
-        name: 'Área de búsqueda',
-        description: 'Polígono dibujado por el usuario',
-        geometry: geoJSON.geometry
+      // Guardar el punto central del área dibujada
+      const response = await axios.post(`${API_BASE_URL}/api/geodata`, {
+        name: 'Punto de interés',
+        description: 'Ubicación marcada por el usuario',
+        geometry: {
+          type: 'Point',
+          coordinates: center.geometry.coordinates
+        }
       });
 
-      // Después de guardar el área, obtener todos los puntos
-      const getResponse = await axios.get('https://geomapia.onrender.com/api/geodata');
+      // Si se guardó exitosamente, obtener todos los puntos
+      const getResponse = await axios.get(`${API_BASE_URL}/api/geodata`);
       setOsmData(getResponse.data);
       
       // Agregar marcadores basados en la respuesta
       const newMarkers = getResponse.data.map(feature => ({
+        id: feature.id,
         position: [
           feature.geometry.coordinates[1],
           feature.geometry.coordinates[0]
@@ -140,11 +185,25 @@ function App() {
           </FeatureGroup>
           
           {markers.map((marker, index) => (
-            <Marker key={index} position={marker.position}>
+            <Marker key={marker.id} position={marker.position}>
               <Popup>
                 <div>
                   <h3>{marker.title}</h3>
                   <p>{marker.description}</p>
+                  <button 
+                    onClick={() => handleDeletePoint(marker.id)}
+                    style={{
+                      backgroundColor: '#ff4444',
+                      color: 'white',
+                      border: 'none',
+                      padding: '5px 10px',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      marginTop: '10px'
+                    }}
+                  >
+                    Eliminar punto
+                  </button>
                 </div>
               </Popup>
             </Marker>
